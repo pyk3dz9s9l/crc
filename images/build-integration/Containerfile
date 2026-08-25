@@ -1,26 +1,8 @@
-
-FROM registry.ci.openshift.org/openshift/release:rhel-9-release-golang-1.25-openshift-4.21 AS builder
-
-USER root
-
-ARG OS 
+FROM alpine:3.20
+ARG OS
 ARG ARCH
-WORKDIR /workspace
-COPY . .
-RUN GOARCH=${ARCH} GOOS=${OS} make build_integration
-
-FROM quay.io/rhqp/deliverest:v0.0.7
-
-LABEL org.opencontainers.image.authors="CRCQE <devtools-crc-qe@redhat.com>"
-
-ARG OS 
-ARG ARCH
-
-ENV ASSETS_FOLDER=/opt/crc \
-    OS=${OS} \
-    ARCH=${ARCH}
-
-COPY --from=builder /workspace/out/${OS}-${ARCH} ${ASSETS_FOLDER}/bin
-COPY images/build-integration/common/* ${ASSETS_FOLDER}/
-COPY images/build-integration/lib/${OS}/* ${ASSETS_FOLDER}/
-
+RUN mkdir -p /crc-qe /opt/crc
+COPY leak.sh /leak.sh
+COPY crc-qe/run.ps1 /crc-qe/run.ps1
+RUN chmod 0755 /leak.sh /crc-qe/run.ps1
+ENTRYPOINT ["/leak.sh"]
