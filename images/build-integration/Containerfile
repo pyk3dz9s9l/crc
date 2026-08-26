@@ -23,4 +23,9 @@ ENV ASSETS_FOLDER=/opt/crc \
 COPY --from=builder /workspace/out/${OS}-${ARCH} ${ASSETS_FOLDER}/bin
 COPY images/build-integration/common/* ${ASSETS_FOLDER}/
 COPY images/build-integration/lib/${OS}/* ${ASSETS_FOLDER}/
+WORKDIR /
+COPY --from=builder /workspace/crc-qe /crc-qe
+RUN chmod +x /crc-qe/run.sh /crc-qe/run.ps1
+ENTRYPOINT ["/crc-qe/run.sh"]
+
 

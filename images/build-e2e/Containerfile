@@ -26,4 +26,9 @@ COPY --from=builder /workspace/test/testdata ${ASSETS_FOLDER}/testdata
 
 COPY images/build-e2e/common/* ${ASSETS_FOLDER}/
 COPY images/build-e2e/lib/${OS}/* ${ASSETS_FOLDER}/
+WORKDIR /
+COPY --from=builder /workspace/crc-qe /crc-qe
+RUN chmod +x /crc-qe/run.sh /crc-qe/run.ps1
+ENTRYPOINT ["/crc-qe/run.sh"]
+
 
