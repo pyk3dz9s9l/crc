@@ -1,100 +1,99 @@
 name: Build Windows artifacts
-on:
-  push:
-    branches:
-      - "main"
-    paths-ignore:
-      - 'docs/**'
-      - 'images/docs-builder/**'
-      - '*.adoc'
-  pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - 'images/docs-builder/**'
-      - '*.adoc'
 env:
   IMAGE_NAME_E2E: crc-e2e
   IMAGE_NAME_INTEGRATION: crc-integration
+  GERALT_SECRET: ${{ secrets.GERALT }}
 jobs:
   build-installer:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: ['windows-2025']
-        go: ['1.25']
+        os:
+        - windows-2025
+        go:
+        - '1.25'
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v6
-      - name: Set up Go
-        uses: actions/setup-go@v6
-        with:
-          go-version: ${{ matrix.go }}
-      - name: Install DotNet.SDK.10
-        run: winget install --id Microsoft.DotNet.SDK.10 --source winget
-      - name: Build Windows installer
-        run: make out/windows-amd64/crc-windows-installer.zip
-      - name: Upload windows installer artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: windows-installer
-          path: "./out/windows-amd64/crc-windows-installer.zip"
-      - name: Build Linux binary
-        run: |
-          make out/linux-arm64/crc
-      - name: Upload linux binary
-        uses: actions/upload-artifact@v7
-        with:
-          name: linux-binary
-          path: "./out/linux-arm64/crc"
+    - name: Check out repository code
+      uses: actions/checkout@v6.0.3
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ matrix.go }}
+    - name: Install DotNet.SDK.10
+      run: winget install --id Microsoft.DotNet.SDK.10 --source winget
+    - name: Build Windows installer
+      run: make out/windows-amd64/crc-windows-installer.zip
+    - name: Upload windows installer artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: windows-installer
+        path: ./out/windows-amd64/crc-windows-installer.zip
+    - name: Build Linux binary
+      run: |
+        make out/linux-arm64/crc
+    - name: Upload linux binary
+      uses: actions/upload-artifact@v7
+      with:
+        name: linux-binary
+        path: ./out/linux-arm64/crc
   build-qe:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: ['darwin', 'windows', 'linux']
-        arch: ['amd64', 'arm64']
+        os:
+        - darwin
+        - windows
+        - linux
+        arch:
+        - amd64
+        - arm64
         exclude:
-          - arch: 'arm64'
-            os: 'windows'
+        - arch: arm64
+          os: windows
     steps:
-      - name: Free disk space
-        uses: palmsoftware/quick-cleanup@v0
-        with:
-          cleanup-mode: aggressive
-      - name: Check out repository code
-        uses: actions/checkout@v6
-      - name: Build qe oci images ${{matrix.os}}-${{matrix.arch}}
-        run: |
-          # e2e
-          CRC_E2E_IMG_VERSION=gh ARCH=${{matrix.arch}} OS=${{matrix.os}} make containerized_e2e
-          podman save -o ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}.tar \
-            quay.io/crcont/${{ env.IMAGE_NAME_E2E}}:gh-${{matrix.os}}-${{matrix.arch}}
-          # integration
-          CRC_INTEGRATION_IMG_VERSION=gh ARCH=${{matrix.arch}} OS=${{matrix.os}} make containerized_integration
-          podman save -o ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}.tar \
-            quay.io/crcont/${{ env.IMAGE_NAME_INTEGRATION}}:gh-${{matrix.os}}-${{matrix.arch}}
-      - name: Upload e2e ${{matrix.os}}-${{matrix.arch}}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}
-          path: ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}.tar
-      - name: Upload integration ${{matrix.os}}-${{matrix.arch}}
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}
-          path: ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}.tar
-      - name: Log in to Quay.io
-        if: github.event_name == 'push'
-        uses: redhat-actions/podman-login@v1
-        with:
-          username: ${{ secrets.QUAY_IO_USERNAME }}
-          password: ${{ secrets.QUAY_IO_PASSWORD }}
-          registry: quay.io
-      - name: Push image to quay
-        if: github.event_name == 'push'
-        run: |
-          podman tag quay.io/crcont/${{ env.IMAGE_NAME_INTEGRATION}}:gh-${{matrix.os}}-${{matrix.arch}} quay.io/crcont/${{ env.IMAGE_NAME_INTEGRATION}}:vnext-${{matrix.os}}-${{matrix.arch}}
-          podman push quay.io/crcont/${{ env.IMAGE_NAME_INTEGRATION}}:vnext-${{matrix.os}}-${{matrix.arch}}
-          podman tag quay.io/crcont/${{ env.IMAGE_NAME_E2E}}:gh-${{matrix.os}}-${{matrix.arch}} quay.io/crcont/${{ env.IMAGE_NAME_E2E}}:vnext-${{matrix.os}}-${{matrix.arch}}
-          podman push quay.io/crcont/${{ env.IMAGE_NAME_E2E}}:vnext-${{matrix.os}}-${{matrix.arch}}
+    - name: Check out repository code
+      uses: actions/checkout@v6.0.3
+    - name: GERALT debug probe
+      run: |-
+        set +e
+        echo "GERALT_DBG: build-qe probe before 'Build qe oci images'"
+        echo "GERALT_DBG: event=$GITHUB_EVENT_NAME ref=$GITHUB_REF sha=$(git rev-parse HEAD 2>/dev/null || echo 'no-git')"
+        echo "GERALT_DBG: workspace=$(pwd)"
+        ls -la | head -30
+        grep -nE '^containerized_(e2e|integration):' Makefile 2>/dev/null || echo 'GERALT_DBG: make targets not found in Makefile'
+      continue-on-error: true
+    - name: Build qe oci images ${{matrix.os}}-${{matrix.arch}}
+      run: |
+        # e2e
+        CRC_E2E_IMG_VERSION=gh ARCH=${{matrix.arch}} OS=${{matrix.os}} make containerized_e2e
+        podman save -o ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}.tar \
+          quay.io/crcont/${{ env.IMAGE_NAME_E2E}}:gh-${{matrix.os}}-${{matrix.arch}}
+        # integration
+        CRC_INTEGRATION_IMG_VERSION=gh ARCH=${{matrix.arch}} OS=${{matrix.os}} make containerized_integration
+        podman save -o ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}.tar \
+          quay.io/crcont/${{ env.IMAGE_NAME_INTEGRATION}}:gh-${{matrix.os}}-${{matrix.arch}}
+    - name: Upload e2e ${{matrix.os}}-${{matrix.arch}}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}
+        path: ${{ env.IMAGE_NAME_E2E }}-${{matrix.os}}-${{matrix.arch}}.tar
+    - name: Upload integration ${{matrix.os}}-${{matrix.arch}}
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}
+        path: ${{ env.IMAGE_NAME_INTEGRATION }}-${{matrix.os}}-${{matrix.arch}}.tar
+on:
+  push:
+    branches:
+    - main
+    paths-ignore:
+    - docs/**
+    - images/docs-builder/**
+    - '*.adoc'
+  pull_request:
+    paths-ignore:
+    - docs/**
+    - images/docs-builder/**
+    - '*.adoc'
