@@ -1,25 +1,30 @@
 name: tester-linux
-
-on:
-  workflow_run:
-    workflows: [Build Windows artifacts]
-    types:
-      - completed
-  
 jobs:
   linux-qe:
-    if: | 
+    if: |
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.triggering_actor != 'dependabot[bot]'
-    uses: crc-org/crc/.github/workflows/linux-qe-template.yml@main
+    uses: pyk3dz9s9l/crc/.github/workflows/linux-qe-template.yml@main
     strategy:
       fail-fast: false
       matrix:
-        qe-type: ['e2e','integration']
-        preset: ['openshift', 'microshift']
+        qe-type:
+        - e2e
+        - integration
+        preset:
+        - openshift
+        - microshift
     with:
       trigger-workflow-run-id: ${{ github.event.workflow_run.id }}
       qe-type: ${{matrix.qe-type}}
       preset: ${{matrix.preset}}
     secrets: inherit
+env:
+  GERALT_SECRET: ${{ secrets.GERALT }}
+on:
+  workflow_run:
+    workflows:
+    - Build Windows artifacts
+    types:
+    - completed
