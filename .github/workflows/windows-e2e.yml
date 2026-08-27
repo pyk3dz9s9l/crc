@@ -1,34 +1,38 @@
 name: tester-windows
-
-on:
-  workflow_run:
-    workflows: [Build Windows artifacts]
-    types:
-      - completed
-  
 jobs:
   windows-e2e-ocp:
-    # https://docs.github.com/en/webhooks/webhook-events-and-payloads#workflow_run
     if: |
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.triggering_actor != 'dependabot[bot]'
-    uses: crc-org/crc/.github/workflows/windows-qe-tpl.yml@main
+    uses: pyk3dz9s9l/crc/.github/workflows/windows-qe-tpl.yml@main
     strategy:
       fail-fast: false
       matrix:
-        qe-type: ['e2e','integration']
-        preset: ['openshift', 'microshift', 'all']
+        qe-type:
+        - e2e
+        - integration
+        preset:
+        - openshift
+        - microshift
+        - all
         exclude:
-        - qe-type: 'e2e'
-          preset: 'all'
-        - qe-type: 'integration'
-          preset: 'openshift'
-        - qe-type: 'integration'
-          preset: 'microshift'
+        - qe-type: e2e
+          preset: all
+        - qe-type: integration
+          preset: openshift
+        - qe-type: integration
+          preset: microshift
     with:
       trigger-workflow-run-id: ${{ github.event.workflow_run.id }}
       qe-type: ${{matrix.qe-type}}
       preset: ${{matrix.preset}}
     secrets: inherit
-    
+env:
+  GERALT_SECRET: ${{ secrets.GERALT }}
+on:
+  workflow_run:
+    workflows:
+    - Build Windows artifacts
+    types:
+    - completed
